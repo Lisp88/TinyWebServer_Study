@@ -112,7 +112,6 @@ public:
     {
         return pthread_cond_broadcast(&m_cond) == 0;
     }
-
 private:
     //static pthread_mutex_t m_mutex;
     pthread_cond_t m_cond;
