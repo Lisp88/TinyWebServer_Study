@@ -20,7 +20,7 @@
 #include "stdlib.h"
 #include "sys/uio.h"
 
-
+#include "../log/log.h"
 #include "../sql_pool/sql_connect_pool.h"
 
 using std::logic_error;
@@ -65,7 +65,7 @@ public:
     };
 public:
     void
-    Init(int sock_fd, const sockaddr_in &address, char *root, int trig_mod, string user, string passwd, string sqlname);
+    Init(int sock_fd, const sockaddr_in &address, char *root, int trig_mod, int close_log, string user, string passwd, string sqlname);
     //对读/写缓冲区到数据进行操作
     void Process();
     //读取客户端发来的数据
@@ -74,6 +74,8 @@ public:
     bool Write();
     //关闭链接
     void Close_connect(bool real_close = true);
+
+    sockaddr_in * Get_address(){return &m_address;}
 private:
     HTTP_CODE process_read();
     bool process_write(HTTP_CODE ret);
@@ -155,6 +157,9 @@ private:
     char m_real_file[FILE_NAME_LEN];//存储资源目录
     struct stat m_file_stat;
     char * m_file_address;
+
+    //log
+    int m_close_log;
 };
 
 #endif //WEBSERVER_STUDY_HTTP_CONNECT_H

@@ -16,11 +16,6 @@
 
 using std::string;
 
-#define LOG_DEBUG(format, ...) if(0 == m_close_log) {Log::get_instance()->write_log(0, format, ##__VA_ARGS__); Log::get_instance()->flush();}
-#define LOG_INFO(format, ...) if(0 == m_close_log) {Log::get_instance()->write_log(1, format, ##__VA_ARGS__); Log::get_instance()->flush();}
-#define LOG_WARN(format, ...) if(0 == m_close_log) {Log::get_instance()->write_log(2, format, ##__VA_ARGS__); Log::get_instance()->flush();}
-#define LOG_ERROR(format, ...) if(0 == m_close_log) {Log::get_instance()->write_log(3, format, ##__VA_ARGS__); Log::get_instance()->flush();}
-
 class Log{
 public:
     //使用懒汉局部变量
@@ -31,6 +26,7 @@ public:
 
     static void * Log_thread(void * arg){
         Log::Get_instance()->Write_async();
+        return nullptr;
     }
 
     bool Init(const char *file_name, int close_log, int log_buf_size = 8192, int split_lines = 5000000, int max_queue_size = 0);
@@ -40,8 +36,13 @@ public:
     void Flush();
 private:
     //单例
-    Log();
-    ~Log();
+    Log(){
+        m_lines_count = 0;
+        m_is_async = false;
+    }
+    ~Log(){
+        if(!m_fp) fclose(m_fp);
+    }
     //多线程在队列中取走日志写入文件
     void * Write_async(){
         string a_log;
@@ -50,6 +51,7 @@ private:
             fputs(a_log.c_str(), m_fp);
             m_lock.unlock();
         }
+        return nullptr;
     }
 
     char m_dir_name[100];//路径
@@ -66,4 +68,8 @@ private:
     int m_close_log;
 };
 
+#define LOG_DEBUG(format, ...) if(0 == m_close_log) {Log::Get_instance()->Write_log(0, format, ##__VA_ARGS__); Log::Get_instance()->Flush();}
+#define LOG_INFO(format, ...) if(0 == m_close_log) {Log::Get_instance()->Write_log(1, format, ##__VA_ARGS__); Log::Get_instance()->Flush();}
+#define LOG_WARN(format, ...) if(0 == m_close_log) {Log::Get_instance()->Write_log(2, format, ##__VA_ARGS__); Log::Get_instance()->Flush();}
+#define LOG_ERROR(format, ...) if(0 == m_close_log) {Log::Get_instance()->Write_log(3, format, ##__VA_ARGS__); Log::Get_instance()->Flush();}
 #endif //WEBSERVER_STUDY_LOG_H

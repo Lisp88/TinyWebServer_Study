@@ -50,7 +50,6 @@ void Utils::Add_sig(int sig, void (handler)(int), bool restart) {
 }
 
 void Utils::Timer_handler() {
-    cout<<"信号捕捉函数触发，对定时器容器进行遍历，并重置定时信号时间"<<endl;
     m_timer_list.tick();
 
     alarm(m_time_slot);
@@ -186,7 +185,5 @@ void cb_fun(client_data * user_data){
     epoll_ctl(Utils::u_epoll_fd, EPOLL_CTL_DEL, user_data->sock_fd, 0);
 
     close(user_data->sock_fd);
-    cout<<"timer kill client connect : "<<user_data->sock_fd<<endl;
-
     Http_Connect::m_user_count--;
 }

@@ -7,11 +7,13 @@
 
 #include "sys/epoll.h"
 #include "sys/socket.h"
+#include "arpa/inet.h"
 
 #include "http_connect/http_connect.h"
 #include "sql_pool/sql_connect_pool.h"
 #include "thread_poll/thread_poll.h"
 #include "timer/timers.h"
+#include "log/log.h"
 
 const int MAX_FD = 65536;
 const int MAX_EVENT_NUM = 10000;
@@ -23,7 +25,7 @@ public:
     WebServer();
     ~WebServer();
 
-    void init(int port , string user, string passWord, string database, int sql_num, int thread_num);
+    void init(int port , string user, string passWord, string database, int, int, int , int ,int sql_num, int thread_num);
     //实例化线程池
     void Thread_pool();
     //实例化数据库连接池
@@ -34,11 +36,16 @@ public:
     void Event_loop();
     //处理客户端数据
     bool Deal_client_data();
+    //决定触发mod
+    void Trig_mode();
+    //日志
+    void Log_write();
 private:
     void del_timer(Utils_Timer * timer, int sock_fd);
 
     bool deal_signal(bool & time_out, bool & server_stop);
 
+    void adjust_timer(Utils_Timer *timer);
     //初始化客户端连接，挂载到epoll上，并设置定时器
     void timer(int conn_fd, struct sockaddr_in client_address);
     //处理监听到的读事件
@@ -69,10 +76,16 @@ public:
     int m_listen_fd;
     int m_listen_trig;
     int m_conn_trig;
+    int m_linger;
+    int m_mod_trig;
 
     //定时器
     Utils utils;
     client_data * m_users_timer;
+
+    //日志
+    int m_close_log;
+    int m_log_write;//同步/异步写日志0 1
 };
 
 

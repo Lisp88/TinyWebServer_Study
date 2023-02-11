@@ -11,6 +11,7 @@
 #include <iostream>
 #include "../lock/lock.h"
 #include "../sql_pool/sql_connect_pool.h"
+#include "../log/log.h"
 
 using std::list;
 using std::logic_error;
@@ -24,6 +25,7 @@ public:
     ~Thread_Pool();
 
     bool append(T * task, int state);
+    bool append_p(T * task);
 private:
     static void * work(void * arg);
     void run();
@@ -80,6 +82,20 @@ bool Thread_Pool<T>::append(T *task, int state) {
     return true;
 }
 
+template <typename T>
+bool Thread_Pool<T>::append_p(T *request)
+{
+    m_locker.lock();
+    if (m_task_queue.size() >= m_max_task_num)
+    {
+        m_locker.unlock();
+        return false;
+    }
+    m_task_queue.push_back(request);
+    m_locker.unlock();
+    m_sem.post();
+    return true;
+}
 template<typename T>
 void * Thread_Pool<T>::work(void *arg) {
     Thread_Pool * thread_pool = (Thread_Pool *)arg;
@@ -101,13 +117,10 @@ void Thread_Pool<T>::run() {
         m_locker.unlock();
         if(!task)
             continue;
-        cout<<"子线程拿取任务队列的任务"<<endl;
         if(m_actor_mod == 0) {//同步
             if(task->m_state == 0){
-                cout<<"任务为同步读，";
                 if(task->Read_once()){
                     task->m_imprv = 1;//?
-                    cout<<"数据库池大小"<<Sql_Connection_Pool::Get_instance()->Get_size();
                     Connection_RAII mysql_conn(&(task->m_mysql_conn), m_sql_conn_pool);
                     task->Process();
                 }else{
@@ -116,7 +129,6 @@ void Thread_Pool<T>::run() {
                     task->m_timer_trig = 1;
                 }
             }else{
-                cout<<"任务为同步写，";
                 if(task->Write()){
                     task->m_imprv = 1;
                 }else{
@@ -125,7 +137,9 @@ void Thread_Pool<T>::run() {
                 }
             }
         }else{
-            //异步
+            //异步，因为主线程完成了IO操作，所以只需要提供数据库链接即可
+            Connection_RAII mysql_conn(&(task->m_mysql_conn), m_sql_conn_pool);
+            task->Process();
         }
     }
 }

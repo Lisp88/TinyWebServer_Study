@@ -78,12 +78,9 @@ void Http_Connect::Init_mysql_result(Sql_Connection_Pool *sql_pool) {
         string temp2(row[1]);
         users[temp1] = temp2;
     }
-    for(auto p : users)
-        cout<<"用户 : "<<p.first<<"密码 : "<<p.second<<endl;
-    cout<<"套接字 : "<<m_sock<<endl;
 }
 
-void Http_Connect::Init(int sock_fd, const sockaddr_in &address, char * root, int trig_mod, string user, string passwd, string sqlname) {
+void Http_Connect::Init(int sock_fd, const sockaddr_in &address, char * root, int trig_mod, int close_log, string user, string passwd, string sqlname) {
     m_sock = sock_fd;
     m_address = address;
     trig_mod = 1;
@@ -92,6 +89,7 @@ void Http_Connect::Init(int sock_fd, const sockaddr_in &address, char * root, in
 
     m_doc_root = root;
     m_trig_mod = trig_mod;
+    m_close_log = close_log;
 
     strcpy(m_sql_user, user.c_str());
     strcpy(m_sql_name, sqlname.c_str());
@@ -114,7 +112,7 @@ bool Http_Connect::Read_once() {
 
         return true;
     }else{
-        cout<<"ET，从内核读缓冲区读取到用户读缓冲区上"<<endl;
+        LOG_INFO("ET，从内核读缓冲区读取到用户读缓冲区上");
         //ET读取数据，因为只触发一次，所以要读取完全部数据
         while(1){
             read_bytes = recv(m_sock, m_read_buf + m_read_idx, READ_BUFF_SIZE - m_read_idx, 0);
@@ -133,7 +131,7 @@ bool Http_Connect::Read_once() {
 }
 
 void Http_Connect::Process() {
-    cout<<"对读入的信息进行解析"<<endl;
+    LOG_INFO("对读入的信息进行解析");
     //读取解析请求报文
     HTTP_CODE read_ret = process_read();
     //数据不完整，还需继续接收
@@ -141,12 +139,12 @@ void Http_Connect::Process() {
         Mod_fd(m_epoll_fd, m_sock, m_trig_mod, EPOLLIN);
         return;
     }
-    cout<<"报文格式正确，根据获取的信息生成了响应报文"<<endl;
+    LOG_INFO("报文格式正确，根据获取的信息生成了响应报文");
     //生成发送响应报文
     bool write_ret = process_write(read_ret);
     if (!write_ret)
         Close_connect();
-    cout<<"注册该客户端套接字的写事件，等待发送"<<endl;
+    LOG_INFO("注册该客户端套接字的写事件，等待发送");
     Mod_fd(m_epoll_fd, m_sock, m_trig_mod, EPOLLOUT);
 }
 
@@ -154,14 +152,14 @@ Http_Connect::HTTP_CODE Http_Connect::process_read() {
     LINE_STATE line_status = LINE_OK;
     HTTP_CODE ret = NO_REQUEST;
     char *text = 0;
-    cout<<"进入Http请求报文解析的状态机，获取报文中的信息"<<endl;
-    //cout<<m_read_buf<<endl;
+    LOG_INFO("进入Http请求报文解析的状态机，获取报文中的信息");
+
     //第一次解析 或 第一行数据完整才可进入
     while(m_check_state == CHECK_STATE_CONTENT && line_status == LINE_OK
     || (line_status = parse_line()) == LINE_OK){
         text = get_line();
         m_start_line = m_check_idx;
-        cout<<"line content : "<<text<<endl;
+        LOG_INFO("line content : %s", text);
         switch (m_check_state)
         {
             case CHECK_STATE_REQUESTLINE:
@@ -199,7 +197,7 @@ Http_Connect::HTTP_CODE Http_Connect::process_read() {
 //响应报文有 请求文件 和 请求出错。状态行和响应头 两种回复报文都有，对应写缓冲区。
 //而文件报文到消息体对应mmap申请的内存
 bool Http_Connect::process_write(Http_Connect::HTTP_CODE ret) {
-    cout<<"根据读取结果来生成相应的响应报文，写入用户写缓冲区，等待发送"<<endl;
+    LOG_INFO("根据读取结果来生成相应的响应报文，写入用户写缓冲区，等待发送");
     switch (ret) {
         //内部错误 500
         case INTERNAL_ERROR:
@@ -263,7 +261,7 @@ bool Http_Connect::process_write(Http_Connect::HTTP_CODE ret) {
 void Http_Connect::Close_connect(bool real_close) {
     if(real_close && (m_sock != -1)){
         Remove_fd(m_epoll_fd, m_sock);
-        cout<<"client : "<<m_sock<<" close"<<endl;
+        LOG_INFO("client : %d close", m_sock);
         m_user_count--;
         m_sock = -1;
     }
@@ -343,7 +341,7 @@ Http_Connect::HTTP_CODE Http_Connect::parse_request_line(char *text) {
         strcat(m_url, "judge.html");
     m_check_state = CHECK_STATE_HEADER;
 
-    cout<<"解析请求行 :"<<text<<endl;
+    LOG_INFO("解析请求行 : %s", text);
     return NO_REQUEST;
 }
 
@@ -351,14 +349,14 @@ Http_Connect::HTTP_CODE Http_Connect::parse_request_line(char *text) {
 Http_Connect::HTTP_CODE Http_Connect::parse_headers(char *text) {
     //空行，则需判断请求方式来决定是否解析消息体
     if(text[0] == '\0'){
-        cout<<"解析空行，";
+        LOG_INFO("解析空行，");
         if(m_content_len != 0){
             m_check_state = CHECK_STATE_CONTENT;
-            cout<<"POST请求，准备解析请求体"<<endl;
+            LOG_INFO("POST请求，准备解析请求体");
             return NO_REQUEST;
         }
-        cout<<"GET请求，解析结束"<<endl;
-        cout<<"解析请求头"<<endl;
+        LOG_INFO("GET请求，解析结束");
+        LOG_INFO("解析请求头");
         return GET_REQUEST;
     }
     //非空行则是请求头
@@ -400,7 +398,7 @@ Http_Connect::HTTP_CODE Http_Connect::parse_content(char *text) {
 
 
 Http_Connect::HTTP_CODE Http_Connect::do_request() {
-    cout<<"根据请求action值，来确定返回文件的目录"<<endl;
+    LOG_INFO("根据请求action值，来确定返回文件的目录");
     strcpy(m_real_file, m_doc_root);
     int len = strlen(m_doc_root);
     //printf("m_url:%s\n", m_url);
@@ -431,7 +429,7 @@ Http_Connect::HTTP_CODE Http_Connect::do_request() {
             password[j] = m_string[i];
         password[j] = '\0';
         if (*(p + 1) == '3') {
-            cout<<"action 3 注册验证"<<endl;
+            LOG_INFO("action 3 注册验证");
             //如果是注册，先检测数据库中是否有重名的
             //没有重名的，进行增加数据
             char *sql_insert = (char *) malloc(sizeof(char) * 200);
@@ -442,38 +440,33 @@ Http_Connect::HTTP_CODE Http_Connect::do_request() {
             strcat(sql_insert, password);
             strcat(sql_insert, "')");
             if (users.find(name) == users.end()) {
-                //cout<<
                 m_lock.lock();
                 int res = mysql_query(m_mysql_conn, sql_insert);
                 users.insert(pair<string, string>(name, password));
                 m_lock.unlock();
                 if (!res){
                     strcpy(m_url, "/log.html");
-                    cout<<"注册通过，返回登录页面"<<endl;
+                    LOG_INFO("注册通过，返回登录页面");
                 }else{
                     strcpy(m_url, "/registerError.html");
-                    cout<<"注册失败，返回注册失败页面"<<endl;
+                    LOG_INFO("注册失败，返回注册失败页面");
                 }
             } else{
                 strcpy(m_url, "/registerError.html");
-                cout<<"注册失败，返回注册失败页面"<<endl;
+                LOG_INFO("注册失败，返回注册失败页面");
             }
         }
             //如果是登录，直接判断
             //若浏览器端输入的用户名和密码在表中可以查找到，返回1，否则返回0
         else if (*(p + 1) == '2') {
-            cout<<"action 2 登录验证"<<endl;
-            for(auto p : users){
-                cout<<"key :"<<p.first<<"value :"<<p.second<<endl;
-            }
-            cout<<"user :"<<name<<" passwd :"<<password<<endl;
+            LOG_INFO("action 2 登录验证");
             if (users.find(name) != users.end() && users[name] == password){
                 strcpy(m_url, "/welcome.html");
-                cout<<"登录成功，返回欢迎页面"<<endl;
+                LOG_INFO("登录成功，返回欢迎页面");
             }
             else {
                 strcpy(m_url, "/logError.html");
-                cout << "登录失败，返回登录失败页面" << endl;
+                LOG_INFO("登录失败，返回登录失败页面");
             }
         }
     }
@@ -481,7 +474,7 @@ Http_Connect::HTTP_CODE Http_Connect::do_request() {
     //跳转登录页面
     if (*(p + 1) == '0')
     {
-        cout<<"action 0 跳转注册页面"<<endl;
+        LOG_INFO("action 0 跳转注册页面");
         char *m_url_real = (char *)malloc(sizeof(char) * 200);
         strcpy(m_url_real, "/register.html");
         strncpy(m_real_file + len, m_url_real, strlen(m_url_real));
@@ -489,7 +482,7 @@ Http_Connect::HTTP_CODE Http_Connect::do_request() {
         free(m_url_real);
     }else if (*(p + 1) == '1')
     {
-        cout<<"action 1 跳转登录页面"<<endl;
+        LOG_INFO("action 1 跳转登录页面");
         char *m_url_real = (char *)malloc(sizeof(char) * 200);
         strcpy(m_url_real, "/log.html");
         strncpy(m_real_file + len, m_url_real, strlen(m_url_real));
@@ -498,7 +491,7 @@ Http_Connect::HTTP_CODE Http_Connect::do_request() {
     }
     else if (*(p + 1) == '5')
     {
-        cout<<"action 5 跳转图片页面"<<endl;
+        LOG_INFO("action 5 跳转图片页面");
         char *m_url_real = (char *)malloc(sizeof(char) * 200);
         strcpy(m_url_real, "/picture.html");
         strncpy(m_real_file + len, m_url_real, strlen(m_url_real));
@@ -507,7 +500,7 @@ Http_Connect::HTTP_CODE Http_Connect::do_request() {
     }
     else if (*(p + 1) == '6')
     {
-        cout<<"action 6 跳转视频页面"<<endl;
+        LOG_INFO("action 6 跳转视频页面");
         char *m_url_real = (char *)malloc(sizeof(char) * 200);
         strcpy(m_url_real, "/video.html");
         strncpy(m_real_file + len, m_url_real, strlen(m_url_real));
@@ -515,7 +508,7 @@ Http_Connect::HTTP_CODE Http_Connect::do_request() {
         free(m_url_real);
     }else if (*(p + 1) == '7')
     {
-        cout<<"action 7 跳转关注页面"<<endl;
+        LOG_INFO("action 7 跳转关注页面");
         char *m_url_real = (char *)malloc(sizeof(char) * 200);
         strcpy(m_url_real, "/fans.html");
         strncpy(m_real_file + len, m_url_real, strlen(m_url_real));
@@ -534,7 +527,7 @@ Http_Connect::HTTP_CODE Http_Connect::do_request() {
 
     int fd = open(m_real_file, O_RDONLY);
     m_file_address = (char *)mmap(0, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    cout<<"使用mmap将html文件绑定到内存中，增加访问速度，文件大小:"<<m_file_stat.st_size<<endl;
+    LOG_INFO("使用mmap将html文件绑定到内存中，增加访问速度，文件大小: %d", m_file_stat.st_size);
     close(fd);
     return FILE_REQUEST;
 }
@@ -623,6 +616,7 @@ bool Http_Connect::Write() {
             //写缓冲区满了
             if(errno == EAGAIN){
                 Mod_fd(m_epoll_fd, m_sock, m_trig_mod, EPOLLOUT);
+                return true;
             }
             //不是缓冲区导致的发送失败
             unmap();//取消映射
@@ -645,7 +639,7 @@ bool Http_Connect::Write() {
         //发送完毕
         if (bytes_to_send <= 0)
         {
-            cout<<"发送完毕，重新注册读事件"<<endl;
+            LOG_INFO("发送完毕，重新注册读事件");
             unmap();
             Mod_fd(m_epoll_fd, m_sock, m_trig_mod, EPOLLIN);
 

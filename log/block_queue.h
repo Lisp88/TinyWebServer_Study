@@ -32,16 +32,21 @@ public:
 
         m_c.signal();
         m_lock.unlock();
+        return true;
     }
 
     bool Pop(T & item){
         m_lock.lock();
         while(m_qu.empty()){
-            m_c.wait(m_lock.get());
+            if(!m_c.wait(m_lock.get())){
+                m_lock.unlock();
+                return false;
+            }
         }
         item = m_qu.front();
         m_qu.pop();
         m_lock.unlock();
+        return true;
     }
 
     bool Full(){

@@ -4,6 +4,7 @@
 
 #ifndef WEBSERVER_STUDY_CONFIG_H
 #define WEBSERVER_STUDY_CONFIG_H
+#include "webserver.h"
 
 class Config
 {

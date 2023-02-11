@@ -17,7 +17,7 @@ bool Log::Init(const char *file_name, int close_log, int log_buf_size, int split
     m_log_buff_size = log_buf_size;
     m_buff = new char[m_log_buff_size];
     memset(m_buff, '\0', m_log_buff_size);
-    m_lines_count = split_lines;
+    m_max_lines = split_lines;
 
     time_t t = time(nullptr);
     struct tm * sys_tm = localtime(&t);
@@ -31,6 +31,7 @@ bool Log::Init(const char *file_name, int close_log, int log_buf_size, int split
     }else{
         strcpy(m_log_name, p+1);
         strncpy(m_dir_name, file_name, p-file_name+1);
+        snprintf(log_real_name, 255, "%s%d_%02d_%02d_%s", m_dir_name, my_tm.tm_year + 1900, my_tm.tm_mon + 1, my_tm.tm_mday, m_log_name);
     }
     m_today = my_tm.tm_mday;
 

@@ -1,5 +1,3 @@
-#include <iostream>
-#include "webserver.h"
 #include "config.h"
 
 int main(int argc, char ** argv) {
@@ -8,16 +6,19 @@ int main(int argc, char ** argv) {
     config.parse_arg(argc, nullptr);
 
     WebServer webserver;
-    cout<<"webserver 资源初始化"<<endl;
     webserver.init(config.PORT, "root", "88888888", "yourdb",
-                   config.sql_num, config.thread_num);
-
+                   config.actor_model, config.OPT_LINGER, config.close_log, config.close_log,config.sql_num, config.thread_num);
+    //日志生成
+    webserver.Log_write();
+    //数据库连接池
     webserver.Sql_pool();
-    cout<<"main >> sql_poll >>map size : "<<users.size()<<endl;
+    //线程池
     webserver.Thread_pool();
-    cout<<"main >> thread_pool >>map size : "<<users.size()<<endl;
+    //触发模式设置
+    webserver.Trig_mode();
+    //监听设置
     webserver.Event_listen();
-    cout<<"main >> listen >>map size : "<<users.size()<<endl;
+    //循环监听
     webserver.Event_loop();
 
     return 0;

@@ -6,8 +6,6 @@
 #include "stdexcept"
 #include "iostream"
 
-using std::cout;
-using std::endl;
 using std::logic_error;
 
 void Sql_Connection_Pool::Destroy_pool() {
@@ -21,7 +19,6 @@ void Sql_Connection_Pool::Destroy_pool() {
         m_max_conn_num = 0;
         m_conn_list.clear();
     }
-    cout<<"销毁数据库连接池"<<endl;
     m_lock.unlock();
 }
 
@@ -45,7 +42,6 @@ void Sql_Connection_Pool::init(string url, unsigned port, string user, string pa
         m_conn_list.push_back(conn);
         ++m_free_conn_num;
     }
-    cout<<"数据库池大小"<<m_free_conn_num<<endl;
     m_sem = sem(m_free_conn_num);
     m_max_conn_num = m_free_conn_num;
 }
@@ -57,7 +53,6 @@ MYSQL *Sql_Connection_Pool::Get_sql_connect() {
     }
     m_sem.wait();//原子操作，sem_num -1 线程占用
     m_lock.lock();
-    cout<<"取出一条数据库链接"<<endl;
 
     conn = m_conn_list.front();
     m_conn_list.pop_front();
@@ -74,7 +69,6 @@ bool Sql_Connection_Pool::Realse_sql_connect(MYSQL *sql_conn) {
     if(!sql_conn)
         return false;
     m_lock.lock();
-    cout<<"释放该条数据库链接"<<endl;
     m_conn_list.push_back(sql_conn);
     ++m_free_conn_num;
     --m_cur_conn_num;

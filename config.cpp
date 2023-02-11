@@ -52,7 +52,7 @@ void Config::parse_arg(int argc, char **argv) {
 
 Config::Config() {
     //端口号,默认9006
-    PORT = 9007;
+    PORT = 9006;
 
     //日志写入方式，默认同步
     LOGWrite = 0;
@@ -78,7 +78,7 @@ Config::Config() {
     //关闭日志,默认不关闭
     close_log = 0;
 
-    //并发模型,默认是proactor
-    actor_model = 1;
+    //并发模型, 0 同步 1 异步
+    actor_model = 0;
 }
 
