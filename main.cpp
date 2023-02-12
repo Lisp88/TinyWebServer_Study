@@ -3,7 +3,7 @@
 int main(int argc, char ** argv) {
 
     Config config;
-    config.parse_arg(argc, nullptr);
+    config.parse_arg(argc, argv);
 
     WebServer webserver;
     webserver.init(config.PORT, "root", "88888888", "yourdb",
