@@ -55,4 +55,4 @@
 * **使用webbench进行压力测试**
 
 在关闭日志系统状态下使用默认服务器设置
-![压力测试图](https://github.com/Laity8/picture_resource_resort/blob/master/TinyWebServer_repository/webserver_test.jpg, "压力测试图")
+![压力测试图](https://github.com/Laity8/picture_resource_resort/blob/master/TinyWebServer_repository/webserver_test.jpg "压力测试图")
