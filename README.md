@@ -52,3 +52,7 @@
 
     异步不等于异步IO，异步指代码的运行流程。主线程写入日志时，会将写入信息放入任务队列中。工作线程与主线程竞争拿到任务进行IO操作。主线程为异步线程，当任务队列满时主线程会同步写入。
  
+* **使用webbench进行压力测试**
+
+在关闭日志系统状态下使用默认服务器设置
+![压力测试图](https://github.com/Laity8/picture_resource_resort/blob/master/TinyWebServer_repository/webserver_test.jpg, "压力测试图")
