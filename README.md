@@ -55,4 +55,5 @@
 * **使用webbench进行压力测试**
 
 在关闭日志系统状态下使用默认服务器设置
-![压力测试图](https://github.com/Laity8/picture_resource_resort/blob/master/TinyWebServer_repository/webserver_test.jpg "压力测试图")
+由于服务器内存有限，无法开1W个客户端测试，最高只能开到8K，完全支持1W并发数
+![压力测试图](https://github.com/Laity8/picture_resource_resort/blob/master/TinyWebServer_repository/new_test.jpg "压力测试图")
